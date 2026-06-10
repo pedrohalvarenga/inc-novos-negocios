@@ -704,7 +704,52 @@ async function main() {
     });
   }
 
-  console.log("✅ Seed concluído! 12 terrenos, 5 proprietários, 2 corretores + Fase 3: 2 matrículas, 3 due diligences criados.");
+  // ─── Fase 4: Lançamentos financeiros ─────────────────────────────────────────
+  const hoje = new Date("2026-06-10");
+  function daysAgo(n: number) { const d = new Date(hoje); d.setDate(d.getDate() - n); return d; }
+  function daysAhead(n: number) { const d = new Date(hoje); d.setDate(d.getDate() + n); return d; }
+
+  const lancamentosData = [
+    // t-001: Paulista — contrato em elaboração
+    { id: "lanc-001", terrenoId: "t-001", tipo: "PARCELA_TERRENISTA", descricao: "Sinal de negociação", valor: 500_000, vencimento: daysAgo(60), status: "PAGO", dataPagamento: daysAgo(58) },
+    { id: "lanc-002", terrenoId: "t-001", tipo: "IPTU", descricao: "IPTU 2026 — parcela 1/3", valor: 18_500, vencimento: daysAgo(15), status: "PAGO", dataPagamento: daysAgo(14) },
+    { id: "lanc-003", terrenoId: "t-001", tipo: "IPTU", descricao: "IPTU 2026 — parcela 2/3", valor: 18_500, vencimento: daysAhead(15), status: "A_PAGAR", recorrente: false },
+    { id: "lanc-004", terrenoId: "t-001", tipo: "IPTU", descricao: "IPTU 2026 — parcela 3/3", valor: 18_500, vencimento: daysAhead(45), status: "PREVISTO" },
+    { id: "lanc-005", terrenoId: "t-001", tipo: "MANUTENCAO", descricao: "Segurança do terreno — maio", valor: 3_200, vencimento: daysAgo(10), status: "ATRASADO" },
+    { id: "lanc-006", terrenoId: "t-001", tipo: "MANUTENCAO", descricao: "Segurança do terreno — junho", valor: 3_200, vencimento: daysAhead(20), status: "PREVISTO", recorrente: true, recorrencia: "MENSAL" },
+    // t-002: Barra — proposta aceita
+    { id: "lanc-007", terrenoId: "t-002", tipo: "CARTORIO", descricao: "Análise documental cartório", valor: 8_400, vencimento: daysAgo(45), status: "PAGO", dataPagamento: daysAgo(44) },
+    { id: "lanc-008", terrenoId: "t-002", tipo: "IPTU", descricao: "IPTU 2026", valor: 42_000, vencimento: daysAgo(5), status: "ATRASADO" },
+    { id: "lanc-009", terrenoId: "t-002", tipo: "COMISSAO", descricao: "Comissão corretor Bruno Teixeira (2%)", valor: 420_000, vencimento: daysAhead(30), status: "PREVISTO" },
+    { id: "lanc-010", terrenoId: "t-002", tipo: "CERCA", descricao: "Instalação cercamento perimetral", valor: 35_000, vencimento: daysAhead(7), status: "A_PAGAR" },
+    // t-003: Savassi
+    { id: "lanc-011", terrenoId: "t-003", tipo: "IPTU", descricao: "IPTU 2026", valor: 12_800, vencimento: daysAhead(2), status: "A_PAGAR" },
+    { id: "lanc-012", terrenoId: "t-003", tipo: "MANUTENCAO", descricao: "Limpeza terreno — mensal", valor: 1_500, vencimento: daysAgo(20), status: "PAGO", dataPagamento: daysAgo(19), recorrente: true, recorrencia: "MENSAL" },
+    // t-006: Porto Alegre — contrato assinado → tem lançamentos gerados pelo gatilho da Fase 2
+    { id: "lanc-013", terrenoId: "t-006", tipo: "PARCELA_TERRENISTA", descricao: "Parcela 1/12 — contrato assinado", valor: 266_666, vencimento: daysAgo(30), status: "PAGO", dataPagamento: daysAgo(29) },
+    { id: "lanc-014", terrenoId: "t-006", tipo: "PARCELA_TERRENISTA", descricao: "Parcela 2/12 — contrato assinado", valor: 266_666, vencimento: daysAhead(0), status: "A_PAGAR" },
+    { id: "lanc-015", terrenoId: "t-006", tipo: "PARCELA_TERRENISTA", descricao: "Parcela 3/12 — contrato assinado", valor: 266_666, vencimento: daysAhead(30), status: "PREVISTO", recorrente: true, recorrencia: "MENSAL" },
+    { id: "lanc-016", terrenoId: "t-006", tipo: "IPTU", descricao: "IPTU 2026 parcelado 1/2", valor: 9_600, vencimento: daysAgo(25), status: "ATRASADO" },
+    { id: "lanc-017", terrenoId: "t-006", tipo: "CARTORIO", descricao: "Registro de contrato", valor: 6_200, vencimento: daysAhead(10), status: "A_PAGAR" },
+    { id: "lanc-018", terrenoId: "t-001", tipo: "OUTROS", descricao: "Avaliação de engenharia", valor: 5_000, vencimento: daysAhead(60), status: "PREVISTO" },
+  ];
+
+  for (const l of lancamentosData) {
+    const { id, dataPagamento, ...rest } = l as any;
+    await prisma.lancamentoFinanceiro.upsert({
+      where: { id },
+      update: {},
+      create: {
+        id,
+        ...rest,
+        dataPagamento: dataPagamento ? new Date(dataPagamento) : undefined,
+        vencimento: rest.vencimento ? new Date(rest.vencimento) : undefined,
+        createdBy: admin.id,
+      },
+    });
+  }
+
+  console.log("✅ Seed concluído! 12 terrenos, 5 proprietários, 2 corretores + Fase 3: 2 matrículas, 3 due diligences + Fase 4: 18 lançamentos financeiros criados.");
 }
 
 main()

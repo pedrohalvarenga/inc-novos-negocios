@@ -1,11 +1,10 @@
 import PageHeader from "@/components/common/PageHeader";
-import { Lock } from "lucide-react";
+import Link from "next/link";
+import { Lock, ExternalLink } from "lucide-react";
 
 const FUTURAS = [
-  { titulo: "Integração Zenkit", desc: "Importe terrenos automaticamente do Zenkit" },
   { titulo: "Due Diligence Automatizado", desc: "Consulta automática de CPF/CNPJ em bureaus externos" },
   { titulo: "Assinatura Digital", desc: "Integração com plataformas de assinatura de contratos" },
-  { titulo: "Notificações e Alertas", desc: "Alertas por e-mail e WhatsApp sobre prazos e vencimentos" },
 ];
 
 export default function ConfiguracoesPage() {
@@ -78,6 +77,32 @@ export default function ConfiguracoesPage() {
             Para alterar o logo, substitua o arquivo em <code className="bg-[#F7F7F7] px-1 rounded">/public/brand/logo.svg</code>.
             Upload via painel estará disponível em breve.
           </p>
+        </div>
+      </div>
+
+      {/* Integrações */}
+      <div className="rounded-xl border border-black/8 bg-white overflow-hidden">
+        <div className="px-6 py-4 border-b border-black/6">
+          <h2 className="text-sm font-semibold text-black">Integrações</h2>
+        </div>
+        <div className="divide-y divide-black/4">
+          <div className="px-6 py-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-black">Zenkit</p>
+              <p className="text-xs text-[#606060]">Importe e sincronize terrenos automaticamente</p>
+            </div>
+            <Link href="/configuracoes/zenkit"
+              className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-black/15 text-xs font-medium text-black hover:bg-[#F7F7F7]">
+              <ExternalLink size={12} /> Configurar
+            </Link>
+          </div>
+          <div className="px-6 py-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-black">E-mail (SMTP)</p>
+              <p className="text-xs text-[#606060]">Configure as variáveis SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS no ambiente do servidor</p>
+            </div>
+            <span className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">Disponível</span>
+          </div>
         </div>
       </div>
 
