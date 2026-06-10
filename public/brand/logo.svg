@@ -1,0 +1,13 @@
+<svg width="220" height="92" viewBox="0 0 220 92" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- INC -->
+  <!-- I -->
+  <rect x="0" y="0" width="22" height="62" fill="#000000"/>
+  <!-- N -->
+  <rect x="38" y="0" width="22" height="62" fill="#000000"/>
+  <polygon points="60,0 82,0 82,62 60,62 60,42 38,8 38,0" fill="#000000"/>
+  <rect x="60" y="0" width="22" height="62" fill="#000000"/>
+  <!-- C -->
+  <path d="M106 0 L190 0 L190 18 L120 18 L120 44 L190 44 L190 62 L106 62 C95 62 88 53 88 44 L88 18 C88 9 95 0 106 0 Z" fill="#000000"/>
+  <!-- EMPREENDIMENTOS -->
+  <text x="0" y="85" font-family="Arial, Helvetica, sans-serif" font-size="13.5" font-weight="600" letter-spacing="5.5" fill="#F47920">EMPREENDIMENTOS</text>
+</svg>
