@@ -8,10 +8,12 @@ import {
 import Link from "next/link";
 import ContratoStatusBadge from "./ContratoStatusBadge";
 import AnaliseJuridicaPanel from "./AnaliseJuridicaPanel";
+import AnaliseHibridaModal from "@/components/comum/AnaliseHibridaModal";
 import { CLAUSULAS_ORDEM, CLAUSULAS_IMPORTANTES, type Clausula, type ClausulasContrato, type AnaliseClausula } from "@/lib/contratos/template";
 import { formatDate, formatDateTime } from "@/lib/formatters";
 import { gerarHtmlContrato } from "@/lib/contratos/pdf";
 import { cn } from "@/lib/utils";
+import { z } from "zod";
 import type { StatusContrato } from "@prisma/client";
 
 const RISCO_COR: Record<string, string> = {
@@ -49,7 +51,22 @@ export default function ContratoEditor({ contratoId, usuarioNome, usuarioRole }:
   const [dataAssinatura, setDataAssinatura] = useState("");
   const [analiseCompleta, setAnaliseCompleta] = useState<any>(null);
   const [analisandoCompleto, setAnalisandoCompleto] = useState(false);
+  const [modalHibrido, setModalHibrido] = useState<{ prompt: string; clausulaKey?: string } | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const SchemaClausula = z.object({
+    risco: z.enum(["BAIXO", "MEDIO", "ALTO"]),
+    explicacao: z.string(),
+    sugestao: z.string().optional(),
+    dicasNegociacao: z.string().optional(),
+  });
+
+  const SchemaCompleto = z.object({
+    resumoGeral: z.string(),
+    clausulasAusentes: z.array(z.object({ nome: z.string(), importancia: z.string(), sugestaoTexto: z.string().optional() })).optional(),
+    principaisRiscos: z.array(z.object({ clausula: z.string(), risco: z.enum(["BAIXO", "MEDIO", "ALTO"]), descricao: z.string() })).optional(),
+    recomendacao: z.string().optional(),
+  });
 
   const podeAprovar = ["ADMIN", "GESTOR"].includes(usuarioRole);
 
@@ -104,7 +121,12 @@ export default function ContratoEditor({ contratoId, usuarioNome, usuarioRole }:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clausulaKey: key }),
       });
-      if (res.ok) await carregar();
+      const data = await res.json();
+      if (data.modoHibrido) {
+        setModalHibrido({ prompt: data.prompt, clausulaKey: key });
+      } else if (res.ok) {
+        await carregar();
+      }
     } finally {
       setAnalisando(false);
     }
@@ -118,13 +140,34 @@ export default function ContratoEditor({ contratoId, usuarioNome, usuarioRole }:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
       });
-      if (res.ok) {
-        const data = await res.json();
+      const data = await res.json();
+      if (data.modoHibrido) {
+        setModalHibrido({ prompt: data.prompt });
+      } else if (res.ok) {
         setAnaliseCompleta(data.analise);
       }
     } finally {
       setAnalisandoCompleto(false);
     }
+  }
+
+  async function salvarRespostaHibrida(dados: unknown) {
+    const body = modalHibrido?.clausulaKey
+      ? { clausulaKey: modalHibrido.clausulaKey, respostaManual: JSON.stringify(dados) }
+      : { respostaManual: JSON.stringify(dados) };
+    const res = await fetch(`/api/contratos/${contratoId}/analisar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const respData = await res.json();
+    if (!res.ok) throw new Error(respData.error ?? "Erro ao salvar");
+    if (modalHibrido?.clausulaKey) {
+      await carregar();
+    } else {
+      setAnaliseCompleta(respData.analise);
+    }
+    setModalHibrido(null);
   }
 
   async function mudarStatus(status: StatusContrato) {
@@ -507,6 +550,18 @@ export default function ContratoEditor({ contratoId, usuarioNome, usuarioRole }:
           )}
         </main>
       </div>
+
+      {/* Modal: modo híbrido IA */}
+      {modalHibrido && (
+        <AnaliseHibridaModal
+          titulo={modalHibrido.clausulaKey ? "Análise Jurídica da Cláusula" : "Análise Completa do Contrato"}
+          descricao={modalHibrido.clausulaKey ? `Cláusula: ${clausulas[modalHibrido.clausulaKey]?.titulo ?? modalHibrido.clausulaKey}` : "Análise de todas as cláusulas"}
+          prompt={modalHibrido.prompt}
+          schema={modalHibrido.clausulaKey ? SchemaClausula : SchemaCompleto}
+          onConfirmar={salvarRespostaHibrida}
+          onFechar={() => setModalHibrido(null)}
+        />
+      )}
 
       {/* Modal: confirmar assinatura */}
       {showStatusModal === "ASSINADO" && (

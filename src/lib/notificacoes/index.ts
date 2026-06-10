@@ -27,7 +27,7 @@ export async function notificar(
 
   if (canais.includes("app")) {
     await prisma.notificacao.create({
-      data: { usuarioId, tipo, titulo, mensagem, payload },
+      data: { usuarioId, tipo, titulo, mensagem, payload: payload as any },
     });
   }
 

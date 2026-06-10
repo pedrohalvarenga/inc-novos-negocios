@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase-server";
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const { dataPagamento, valorPago, comprovante } = body;
 
   const l = await prisma.lancamentoFinanceiro.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       status: "PAGO",
       dataPagamento: dataPagamento ? new Date(dataPagamento) : new Date(),

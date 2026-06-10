@@ -5,6 +5,8 @@ let nodemailer: any = null;
 async function getTransporter() {
   if (!process.env.SMTP_HOST) return null;
   if (!nodemailer) {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore — nodemailer é opcional; instalado apenas quando SMTP_HOST for configurado
     nodemailer = (await import("nodemailer")).default;
   }
   return nodemailer.createTransport({

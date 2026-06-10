@@ -158,7 +158,7 @@ export default function FinanceiroContent() {
 
       {novoAberto && (
         <LancamentoForm
-          terrenoId={terrenoNovo || terrenos[0]?.id ?? ""}
+          terrenoId={(terrenoNovo || terrenos[0]?.id) ?? ""}
           onSalvo={() => { setNovoAberto(false); carregar(); }}
           onFechar={() => setNovoAberto(false)}
         />

@@ -71,7 +71,7 @@ export async function sincronizarZenkit(userId: string): Promise<{
 
   await prisma.zenkitSyncLog.update({
     where: { id: logId.id },
-    data: { concluido: new Date(), criados, atualizados, erros, log, status: "CONCLUIDO" },
+    data: { concluido: new Date(), criados, atualizados, erros, log: log as any, status: "CONCLUIDO" },
   });
 
   return { criados, atualizados, erros, log };

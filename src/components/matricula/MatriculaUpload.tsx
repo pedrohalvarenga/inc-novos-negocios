@@ -2,7 +2,9 @@
 
 import { useState, useCallback } from "react";
 import { Upload, X, FileImage, Loader2, AlertCircle } from "lucide-react";
+import { z } from "zod";
 import { cn } from "@/lib/utils";
+import AnaliseHibridaModal from "@/components/comum/AnaliseHibridaModal";
 
 interface ArquivoCarregado {
   nome: string;
@@ -33,6 +35,18 @@ export default function MatriculaUpload({ matriculaId, onAnaliseCompleta, onErro
   const [analisando, setAnalisando] = useState(false);
   const [progresso, setProgresso] = useState("");
   const [erro, setErro] = useState("");
+  const [promptHibrido, setPromptHibrido] = useState<string | null>(null);
+
+  const SchemaMatricula = z.object({
+    numero: z.string().nullable().optional(),
+    cartorioComarca: z.string().nullable().optional(),
+    area: z.number().nullable().optional(),
+    proprietarios: z.array(z.object({ nome: z.string(), cpfCnpj: z.string().nullable().optional(), participacao: z.number().nullable().optional() })).optional(),
+    cadeiaDominial: z.array(z.object({ ordem: z.number().optional(), descricao: z.string(), data: z.string().nullable().optional() })).optional(),
+    onus: z.array(z.object({ tipo: z.string(), descricao: z.string().optional(), risco: z.enum(["BAIXO", "MEDIO", "ALTO", "IMPEDITIVO"]).optional(), dataRegistro: z.string().nullable().optional(), cancelado: z.boolean().optional() })).optional(),
+    riscoConsolidado: z.enum(["BAIXO", "MEDIO", "ALTO", "IMPEDITIVO"]).optional(),
+    observacoes: z.string().nullable().optional(),
+  });
 
   const processarArquivos = useCallback(async (files: File[]) => {
     const novos: ArquivoCarregado[] = [];
@@ -93,6 +107,12 @@ export default function MatriculaUpload({ matriculaId, onAnaliseCompleta, onErro
       });
 
       const data = await res.json();
+      if (data.modoHibrido) {
+        setPromptHibrido(data.prompt);
+        setProgresso("");
+        setAnalisando(false);
+        return;
+      }
       if (!res.ok) throw new Error(data.error ?? "Erro ao analisar");
 
       setProgresso("Análise concluída!");
@@ -107,8 +127,30 @@ export default function MatriculaUpload({ matriculaId, onAnaliseCompleta, onErro
     }
   }
 
+  async function salvarRespostaHibridaMatricula(dados: unknown) {
+    const res = await fetch(`/api/matriculas/${matriculaId}/analisar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ respostaManual: JSON.stringify(dados) }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "Erro ao salvar");
+    setPromptHibrido(null);
+    onAnaliseCompleta({ ...data, arquivos });
+  }
+
   return (
     <div className="space-y-4">
+      {promptHibrido && (
+        <AnaliseHibridaModal
+          titulo="Análise de Matrícula"
+          descricao="Extraia os dados da matrícula com o Claude e cole o JSON abaixo"
+          prompt={promptHibrido}
+          schema={SchemaMatricula}
+          onConfirmar={salvarRespostaHibridaMatricula}
+          onFechar={() => setPromptHibrido(null)}
+        />
+      )}
       {/* Zona de drop */}
       <div
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
@@ -178,24 +220,43 @@ export default function MatriculaUpload({ matriculaId, onAnaliseCompleta, onErro
         </div>
       )}
 
-      <button
-        onClick={analisar}
-        disabled={!arquivos.length || analisando}
-        className={cn(
-          "w-full h-11 rounded-xl font-semibold text-sm transition-colors",
-          arquivos.length && !analisando
-            ? "bg-[#FF7924] text-white hover:bg-orange-600"
-            : "bg-[#F7F7F7] text-[#A0A0A0] cursor-not-allowed"
-        )}
-      >
-        {analisando ? (
-          <span className="flex items-center justify-center gap-2">
-            <Loader2 size={16} className="animate-spin" /> Analisando...
-          </span>
-        ) : (
-          `Analisar ${arquivos.length ? `${arquivos.length} imagem(ns)` : ""} com IA`
-        )}
-      </button>
+      <div className="flex gap-3">
+        <button
+          onClick={analisar}
+          disabled={!arquivos.length || analisando}
+          className={cn(
+            "flex-1 h-11 rounded-xl font-semibold text-sm transition-colors",
+            arquivos.length && !analisando
+              ? "bg-[#FF7924] text-white hover:bg-orange-600"
+              : "bg-[#F7F7F7] text-[#A0A0A0] cursor-not-allowed"
+          )}
+        >
+          {analisando ? (
+            <span className="flex items-center justify-center gap-2">
+              <Loader2 size={16} className="animate-spin" /> Analisando...
+            </span>
+          ) : (
+            `Analisar ${arquivos.length ? `${arquivos.length} imagem(ns)` : ""} com IA`
+          )}
+        </button>
+
+        {/* Botão modo híbrido direto */}
+        <button
+          onClick={async () => {
+            const res = await fetch(`/api/matriculas/${matriculaId}/analisar`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({}),
+            });
+            const data = await res.json();
+            if (data.modoHibrido) setPromptHibrido(data.prompt);
+          }}
+          title="Gerar prompt para análise manual no Claude"
+          className="h-11 px-4 rounded-xl border border-black/20 text-sm font-medium text-[#606060] hover:bg-[#F7F7F7] transition-colors whitespace-nowrap"
+        >
+          Gerar análise para o Claude
+        </button>
+      </div>
     </div>
   );
 }

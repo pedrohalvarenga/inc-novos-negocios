@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase-server";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { z } from "zod";
 
 const SYSTEM_PROMPT = `Você é um especialista em análise de risco de crédito e due diligence jurídica da INC Empreendimentos, incorporadora brasileira.
 
@@ -13,38 +14,25 @@ Seu papel é analisar o resultado de uma due diligence de vendedor de terreno e:
 
 Responda SOMENTE em JSON estruturado, em português do Brasil, sem markdown ao redor do JSON.`;
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+const SchemaResposta = z.object({
+  score: z.number().min(0).max(100),
+  resumoRiscos: z.string(),
+  alertaFraude: z.boolean(),
+  motivoAlertaFraude: z.string().optional().nullable(),
+  recomendacoes: z.array(z.string()).optional(),
+  podeProsseguir: z.enum(["SIM", "COM_RESSALVAS", "NAO"]),
+  justificativaProsseguir: z.string().optional().nullable(),
+});
 
-  if (!checkRateLimit(`dd-${user.id}`, 15_000)) {
-    return NextResponse.json({ error: "Aguarde alguns segundos antes de nova análise" }, { status: 429 });
-  }
+const BodySchema = z.object({
+  respostaManual: z.string().optional(),
+});
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ error: "ANTHROPIC_API_KEY não configurada" }, { status: 503 });
-  }
+function buildPrompt(dd: any): string {
+  const checklist = ((dd.checklist ?? []) as { item: string; status: string; evidencia?: string }[]);
+  return `${SYSTEM_PROMPT}
 
-  const { id } = await params;
-  const dd = await prisma.dueDiligence.findUnique({
-    where: { id },
-    include: {
-      proprietario: { select: { nomeRazaoSocial: true, cpfCnpj: true } },
-    },
-  });
-
-  if (!dd) return NextResponse.json({ error: "Due Diligence não encontrada" }, { status: 404 });
-
-  const dbUser = await prisma.usuario.findUnique({ where: { supabaseId: user.id } });
-  if (!dbUser) return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
-
-  const checklist = ((dd as any).checklist ?? []) as { item: string; status: string; evidencia?: string }[];
-
-  const userPrompt = `Analise esta due diligence e gere um parecer de risco:
+Analise esta due diligence e gere um parecer de risco:
 
 VENDEDOR: ${dd.proprietario.nomeRazaoSocial}
 CPF/CNPJ: ${dd.proprietario.cpfCnpj ?? "Não informado"}
@@ -63,12 +51,85 @@ Retorne um JSON com exatamente esta estrutura:
   "alertaFraude": true ou false,
   "motivoAlertaFraude": "se alertaFraude for true, explique o motivo em 1-2 frases",
   "recomendacoes": [
-    "lista de recomendações de proteção à INC (ex: solicitar certidões atualizadas, incluir cláusula de retenção, etc.)"
+    "lista de recomendações de proteção à INC"
   ],
   "podeProsseguir": "SIM | COM_RESSALVAS | NAO",
   "justificativaProsseguir": "justificativa em 1-2 frases"
 }`;
+}
 
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
+  if (!checkRateLimit(`dd-${user.id}`, 15_000)) {
+    return NextResponse.json({ error: "Aguarde alguns segundos antes de nova análise" }, { status: 429 });
+  }
+
+  const { id } = await params;
+  const body = await request.json();
+  const bodyParsed = BodySchema.safeParse(body);
+  if (!bodyParsed.success) return NextResponse.json({ error: bodyParsed.error.flatten() }, { status: 400 });
+
+  const dd = await prisma.dueDiligence.findUnique({
+    where: { id },
+    include: { proprietario: { select: { nomeRazaoSocial: true, cpfCnpj: true } } },
+  });
+  if (!dd) return NextResponse.json({ error: "Due Diligence não encontrada" }, { status: 404 });
+
+  const dbUser = await prisma.usuario.findUnique({ where: { supabaseId: user.id } });
+  if (!dbUser) return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
+
+  const { respostaManual } = bodyParsed.data;
+
+  // Modo híbrido: processar JSON colado
+  if (respostaManual !== undefined) {
+    try {
+      const limpo = respostaManual.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+      const json = JSON.parse(limpo);
+      const result = SchemaResposta.safeParse(json);
+      if (!result.success) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const msgs = result.error.issues.map((e: any) => `${e.path.join(".")}: ${e.message}`).join("; ");
+        return NextResponse.json({ error: `JSON inválido: ${msgs}` }, { status: 400 });
+      }
+      const parecer = result.data;
+      const updated = await prisma.dueDiligence.update({
+        where: { id },
+        data: {
+          score: parecer.score,
+          resumo: parecer.resumoRiscos,
+          resultado: { ...((dd.resultado as any) ?? {}), parecer },
+          dataAnalise: new Date(),
+        },
+      });
+      await prisma.auditLog.create({
+        data: {
+          usuarioId: dbUser.id,
+          terrenoId: dd.terrenoId,
+          tipo: "UPDATE",
+          entidade: "due_diligence",
+          entidadeId: id,
+          descricao: `Parecer de due diligence (modo híbrido manual) — score: ${parecer.score}/100`,
+        },
+      });
+      return NextResponse.json({ parecer, dueDiligence: updated });
+    } catch {
+      return NextResponse.json({ error: "JSON inválido. Verifique se a resposta está no formato correto." }, { status: 400 });
+    }
+  }
+
+  // Sem API key → retornar prompt para modo híbrido
+  if (!process.env.ANTHROPIC_API_KEY) {
+    const prompt = buildPrompt(dd);
+    return NextResponse.json({ modoHibrido: true, prompt });
+  }
+
+  // Modo automático (API key configurada)
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -81,13 +142,11 @@ Retorne um JSON com exatamente esta estrutura:
         model: "claude-haiku-4-5-20251001",
         max_tokens: 2048,
         system: SYSTEM_PROMPT,
-        messages: [{ role: "user", content: userPrompt }],
+        messages: [{ role: "user", content: buildPrompt(dd).replace(SYSTEM_PROMPT + "\n\n", "") }],
       }),
     });
 
-    if (!response.ok) {
-      throw new Error("Erro ao chamar API de IA");
-    }
+    if (!response.ok) throw new Error("Erro ao chamar API de IA");
 
     const aiResponse = await response.json();
     const texto = aiResponse.content?.[0]?.text ?? "{}";

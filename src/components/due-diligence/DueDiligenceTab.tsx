@@ -2,13 +2,25 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Users, Loader2, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { z } from "zod";
 import ChecklistItems from "./ChecklistItems";
 import ScorePanel from "./ScorePanel";
 import DueDiligenceForm from "./DueDiligenceForm";
 import EmptyState from "@/components/common/EmptyState";
+import AnaliseHibridaModal from "@/components/comum/AnaliseHibridaModal";
 import { StatusBadge as ChecklistBadge } from "./ChecklistItems";
 import { formatDate } from "@/lib/formatters";
 import type { ItemChecklist } from "./ChecklistItems";
+
+const SchemaParecer = z.object({
+  score: z.number().min(0).max(100),
+  resumoRiscos: z.string(),
+  alertaFraude: z.boolean(),
+  motivoAlertaFraude: z.string().optional().nullable(),
+  recomendacoes: z.array(z.string()).optional(),
+  podeProsseguir: z.enum(["SIM", "COM_RESSALVAS", "NAO"]),
+  justificativaProsseguir: z.string().optional().nullable(),
+});
 
 interface Props {
   terrenoId: string;
@@ -21,6 +33,7 @@ export default function DueDiligenceTab({ terrenoId }: Props) {
   const [expandido, setExpandido] = useState<string | null>(null);
   const [gerandoParecer, setGerandoParecer] = useState<string | null>(null);
   const [salvando, setSalvando] = useState<string | null>(null);
+  const [modalHibrido, setModalHibrido] = useState<{ ddId: string; prompt: string } | null>(null);
 
   async function carregar() {
     setLoading(true);
@@ -48,18 +61,50 @@ export default function DueDiligenceTab({ terrenoId }: Props) {
 
   async function gerarParecer(ddId: string) {
     setGerandoParecer(ddId);
-    const res = await fetch(`/api/due-diligence/${ddId}/analisar`, { method: "POST" });
-    const data = await res.json();
-    if (res.ok) {
-      await carregar();
+    try {
+      const res = await fetch(`/api/due-diligence/${ddId}/analisar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (data.modoHibrido) {
+        setModalHibrido({ ddId, prompt: data.prompt });
+      } else if (res.ok) {
+        await carregar();
+      }
+    } finally {
+      setGerandoParecer(null);
     }
-    setGerandoParecer(null);
+  }
+
+  async function salvarRespostaHibridaDD(dados: unknown) {
+    if (!modalHibrido) return;
+    const res = await fetch(`/api/due-diligence/${modalHibrido.ddId}/analisar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ respostaManual: JSON.stringify(dados) }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "Erro ao salvar parecer");
+    setModalHibrido(null);
+    await carregar();
   }
 
   if (loading) return <div className="p-6 animate-pulse space-y-3"><div className="h-6 w-48 bg-gray-100 rounded" /><div className="h-40 bg-gray-100 rounded-xl" /></div>;
 
   return (
     <div className="space-y-4">
+      {modalHibrido && (
+        <AnaliseHibridaModal
+          titulo="Parecer de Due Diligence"
+          descricao="Gere o parecer de risco do vendedor com o Claude e cole o JSON abaixo"
+          prompt={modalHibrido.prompt}
+          schema={SchemaParecer}
+          onConfirmar={salvarRespostaHibridaDD}
+          onFechar={() => setModalHibrido(null)}
+        />
+      )}
       <div className="flex items-center justify-between">
         <h3 className="text-base font-semibold text-black">Due Diligence de Vendedores</h3>
         <button

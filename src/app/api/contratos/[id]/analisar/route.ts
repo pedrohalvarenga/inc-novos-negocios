@@ -5,7 +5,8 @@ import { z } from "zod";
 import type { ClausulasContrato, AnaliseClausula } from "@/lib/contratos/template";
 
 const Schema = z.object({
-  clausulaKey: z.string().optional(), // se ausente, analisa o contrato completo
+  clausulaKey: z.string().optional(),
+  respostaManual: z.string().optional(), // modo híbrido: JSON colado pelo usuário
 });
 
 const SYSTEM_PROMPT = `Você é um advogado especialista da INC Empreendimentos, empresa incorporadora brasileira, com profunda expertise em direito imobiliário brasileiro, especialmente em compra e venda de terrenos, permuta física e financeira, incorporação imobiliária e legislação aplicável (Lei 4.591/64, Código Civil Brasileiro, Lei 13.786/18 — Lei do Distrato, Lei 6.766/79).
@@ -65,6 +66,33 @@ Retorne um JSON com exatamente esta estrutura:
 }`;
 };
 
+const SchemaClausula = z.object({
+  risco: z.enum(["BAIXO", "MEDIO", "ALTO"]),
+  explicacao: z.string(),
+  sugestao: z.string().optional(),
+  dicasNegociacao: z.string().optional(),
+});
+
+const SchemaCompleto = z.object({
+  resumoGeral: z.string(),
+  clausulasAusentes: z.array(z.object({
+    nome: z.string(),
+    importancia: z.string(),
+    sugestaoTexto: z.string().optional(),
+  })).optional(),
+  principaisRiscos: z.array(z.object({
+    clausula: z.string(),
+    risco: z.enum(["BAIXO", "MEDIO", "ALTO"]),
+    descricao: z.string(),
+  })).optional(),
+  recomendacao: z.string().optional(),
+});
+
+function limparJson(texto: string): unknown {
+  const limpo = texto.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  return JSON.parse(limpo);
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -72,10 +100,6 @@ export async function POST(
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
-
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ error: "ANTHROPIC_API_KEY não configurada" }, { status: 503 });
-  }
 
   const { id } = await params;
   const body = await request.json();
@@ -86,11 +110,55 @@ export async function POST(
   if (!contrato) return NextResponse.json({ error: "Contrato não encontrado" }, { status: 404 });
 
   const clausulas = (contrato.clausulas ?? {}) as unknown as ClausulasContrato;
-  const { clausulaKey } = parsed.data;
+  const { clausulaKey, respostaManual } = parsed.data;
 
+  // Modo híbrido: processar resposta manual colada pelo usuário
+  if (respostaManual !== undefined) {
+    try {
+      const json = limparJson(respostaManual);
+      if (clausulaKey) {
+        const result = SchemaClausula.safeParse(json);
+        if (!result.success) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const msgs = result.error.issues.map((e: any) => `${e.path.join(".")}: ${e.message}`).join("; ");
+          return NextResponse.json({ error: `JSON inválido: ${msgs}` }, { status: 400 });
+        }
+        const clausula = clausulas[clausulaKey];
+        if (!clausula) return NextResponse.json({ error: "Cláusula não encontrada" }, { status: 404 });
+        const analise: AnaliseClausula = { ...result.data, analisadoEm: new Date().toISOString(), origem: "análise manual" } as any;
+        clausulas[clausulaKey] = { ...clausula, analise };
+        await prisma.contrato.update({ where: { id }, data: { clausulas: clausulas as any } });
+        return NextResponse.json({ clausulaKey, analise });
+      } else {
+        const result = SchemaCompleto.safeParse(json);
+        if (!result.success) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const msgs = result.error.issues.map((e: any) => `${e.path.join(".")}: ${e.message}`).join("; ");
+          return NextResponse.json({ error: `JSON inválido: ${msgs}` }, { status: 400 });
+        }
+        return NextResponse.json({ tipo: "completa", analise: result.data, analisadoEm: new Date().toISOString() });
+      }
+    } catch {
+      return NextResponse.json({ error: "JSON inválido. Verifique se a resposta está no formato correto." }, { status: 400 });
+    }
+  }
+
+  // Sem API key → retornar prompt para modo híbrido
+  if (!process.env.ANTHROPIC_API_KEY) {
+    if (clausulaKey) {
+      const clausula = clausulas[clausulaKey];
+      if (!clausula) return NextResponse.json({ error: "Cláusula não encontrada" }, { status: 404 });
+      const prompt = `${SYSTEM_PROMPT}\n\n${USER_PROMPT_CLAUSULA(clausula)}`;
+      return NextResponse.json({ modoHibrido: true, clausulaKey, prompt });
+    } else {
+      const prompt = `${SYSTEM_PROMPT}\n\n${USER_PROMPT_COMPLETO(clausulas)}`;
+      return NextResponse.json({ modoHibrido: true, prompt });
+    }
+  }
+
+  // Modo automático (API key configurada)
   try {
     if (clausulaKey) {
-      // Analisa cláusula específica
       const clausula = clausulas[clausulaKey];
       if (!clausula) return NextResponse.json({ error: "Cláusula não encontrada" }, { status: 404 });
 
@@ -125,16 +193,10 @@ export async function POST(
         return NextResponse.json({ error: "Resposta inválida da IA" }, { status: 502 });
       }
 
-      // Salva análise na cláusula
       clausulas[clausulaKey] = { ...clausula, analise };
-      await prisma.contrato.update({
-        where: { id },
-        data: { clausulas: clausulas as any },
-      });
-
+      await prisma.contrato.update({ where: { id }, data: { clausulas: clausulas as any } });
       return NextResponse.json({ clausulaKey, analise });
     } else {
-      // Análise completa
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {

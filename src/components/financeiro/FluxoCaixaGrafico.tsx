@@ -31,7 +31,7 @@ export default function FluxoCaixaGrafico({ terrenoId }: Props) {
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
           <XAxis dataKey="mes" tick={{ fontSize: 11, fill: "#606060" }} />
           <YAxis tickFormatter={fmtTick} tick={{ fontSize: 11, fill: "#606060" }} width={52} />
-          <Tooltip formatter={(v: number) => formatCurrency(v)} labelStyle={{ fontWeight: 600 }} />
+          <Tooltip formatter={(v) => formatCurrency(v as number)} labelStyle={{ fontWeight: 600 }} />
           <Legend wrapperStyle={{ fontSize: 11 }} />
           <Bar dataKey="previsto" name="Previsto" fill="#000000" radius={[3, 3, 0, 0]} />
           <Bar dataKey="atrasado" name="Atrasado" fill="#dc2626" radius={[3, 3, 0, 0]} />
