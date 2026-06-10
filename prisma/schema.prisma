@@ -6,7 +6,287 @@ datasource db {
   provider = "postgresql"
 }
 
-// ─── Enums ───────────────────────────────────────────────────────────────────
+model Usuario {
+  id                  String     @id @default(cuid())
+  supabaseId          String     @unique
+  nome                String
+  email               String     @unique
+  role                Role       @default(ANALISTA)
+  ativo               Boolean    @default(true)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  auditLogs           AuditLog[]
+  propostasCriadas    Proposta[]
+  terrenosCriados     Terreno[]  @relation("TerrenoCriador")
+  terrenosResponsavel Terreno[]  @relation("TerrenoResponsavel")
+
+  @@map("usuarios")
+}
+
+model Terreno {
+  id                        String                   @id @default(cuid())
+  createdAt                 DateTime                 @default(now())
+  updatedAt                 DateTime                 @updatedAt
+  nome                      String
+  apelido                   String?
+  logradouro                String
+  numero                    String?
+  complemento               String?
+  bairro                    String
+  cidade                    String
+  uf                        String                   @db.Char(2)
+  cep                       String?
+  lat                       Float?
+  lng                       Float?
+  areaTerreno               Float
+  origem                    OrigemTerreno            @default(MANUAL)
+  zenkitItemId              String?
+  dataProspeccao            DateTime                 @default(now())
+  zoneamento                String?
+  coeficienteAproveitamento Float?
+  numUnidadesEstimado       Int?
+  areaPrivativaMedia        Float?
+  vgvEstimado               Float?
+  valorPedido               Float?
+  valorCompra               Float?
+  formaPagamento            FormaPagamento?
+  prazoPagamento            Int?
+  percentualPermuta         Float?
+  descricaoPermuta          String?
+  status                    StatusTerreno            @default(PROSPECCAO)
+  createdBy                 String
+  responsavelId             String?
+  corretorId                String?
+  auditLogs                 AuditLog[]
+  contratos                 Contrato[]
+  dueDiligences             DueDiligence[]
+  lancamentos               LancamentoFinanceiro[]
+  matriculas                Matricula[]
+  propostas                 Proposta[]
+  proprietarios             TerrenoProprietario[]
+  statusHistorico           TerrenoStatusHistorico[]
+  corretor                  Corretor?                @relation(fields: [corretorId], references: [id])
+  criador                   Usuario                  @relation("TerrenoCriador", fields: [createdBy], references: [id])
+  responsavel               Usuario?                 @relation("TerrenoResponsavel", fields: [responsavelId], references: [id])
+
+  @@map("terrenos")
+}
+
+model TerrenoStatusHistorico {
+  id             String         @id @default(cuid())
+  terrenoId      String
+  statusAnterior StatusTerreno?
+  statusNovo     StatusTerreno
+  observacao     String?
+  createdAt      DateTime       @default(now())
+  createdBy      String
+  terreno        Terreno        @relation(fields: [terrenoId], references: [id], onDelete: Cascade)
+
+  @@map("terreno_status_historico")
+}
+
+model Proprietario {
+  id                 String                @id @default(cuid())
+  nomeRazaoSocial    String
+  cpfCnpj            String?
+  telefone           String?
+  email              String?
+  representanteLegal String?
+  observacoes        String?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  createdBy          String
+  dueDiligences      DueDiligence[]
+  terrenos           TerrenoProprietario[]
+
+  @@map("proprietarios")
+}
+
+model TerrenoProprietario {
+  id             String       @id @default(cuid())
+  terrenoId      String
+  proprietarioId String
+  percentual     Float?
+  principal      Boolean      @default(false)
+  proprietario   Proprietario @relation(fields: [proprietarioId], references: [id])
+  terreno        Terreno      @relation(fields: [terrenoId], references: [id], onDelete: Cascade)
+
+  @@unique([terrenoId, proprietarioId])
+  @@map("terreno_proprietarios")
+}
+
+model Corretor {
+  id                 String    @id @default(cuid())
+  nome               String
+  telefone           String?
+  email              String?
+  creci              String?
+  percentualComissao Float?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  createdBy          String
+  terrenos           Terreno[]
+
+  @@map("corretores")
+}
+
+model Proposta {
+  id                 String          @id @default(cuid())
+  terrenoId          String
+  versao             Int             @default(1)
+  dataEnvio          DateTime?
+  validade           DateTime?
+  valorProposto      Float?
+  formaPagamento     FormaPagamento?
+  prazo              Int?
+  percentualPermuta  Float?
+  condicoesEspeciais String?
+  status             StatusProposta  @default(RASCUNHO)
+  motivoRecusa       String?
+  baseParaContrato   Boolean         @default(false)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  createdBy          String
+  contratos          Contrato[]
+  criador            Usuario         @relation(fields: [createdBy], references: [id])
+  terreno            Terreno         @relation(fields: [terrenoId], references: [id])
+
+  @@map("propostas")
+}
+
+model Contrato {
+  id             String                 @id @default(cuid())
+  terrenoId      String
+  propostaId     String?
+  versao         Int                    @default(1)
+  clausulas      Json?
+  status         StatusContrato         @default(MINUTA)
+  dataAssinatura DateTime?
+  dataVencimento DateTime?
+  observacoes    String?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  createdBy      String
+  proposta       Proposta?              @relation(fields: [propostaId], references: [id])
+  terreno        Terreno                @relation(fields: [terrenoId], references: [id])
+  lancamentos    LancamentoFinanceiro[]
+
+  @@map("contratos")
+}
+
+model Matricula {
+  id             String     @id @default(cuid())
+  terrenoId      String
+  numero         String?
+  cartorio       String?
+  comarca        String?
+  dadosExtraidos Json?
+  arquivos       Json?
+  onus           Json?
+  riscoOnus      RiscoOnus?
+  observacoes    String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  createdBy      String
+  terreno        Terreno    @relation(fields: [terrenoId], references: [id])
+
+  @@map("matriculas")
+}
+
+model DueDiligence {
+  id             String                    @id @default(cuid())
+  proprietarioId String
+  terrenoId      String?
+  tipo           TipoDocumentoDueDiligence
+  dataAnalise    DateTime?
+  fonte          String?
+  resultado      Json?
+  checklist      Json?
+  resumo         String?
+  score          Float?
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  createdBy      String
+  proprietario   Proprietario              @relation(fields: [proprietarioId], references: [id])
+  terreno        Terreno?                  @relation(fields: [terrenoId], references: [id])
+
+  @@map("due_diligences")
+}
+
+model LancamentoFinanceiro {
+  id                String                   @id @default(cuid())
+  terrenoId         String
+  contratoId        String?
+  tipo              TipoLancamentoFinanceiro
+  descricao         String?
+  valor             Float
+  vencimento        DateTime?
+  status            StatusLancamento         @default(PREVISTO)
+  dataPagamento     DateTime?
+  comprovante       String?
+  recorrente        Boolean                  @default(false)
+  recorrencia       String?
+  recorrenciaConfig Json?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  createdBy         String
+  contrato          Contrato?                @relation(fields: [contratoId], references: [id])
+  terreno           Terreno                  @relation(fields: [terrenoId], references: [id])
+
+  @@map("lancamentos_financeiros")
+}
+
+model AuditLog {
+  id              String        @id @default(cuid())
+  usuarioId       String?
+  terrenoId       String?
+  tipo            TipoAuditoria
+  entidade        String
+  entidadeId      String
+  camposAlterados Json?
+  descricao       String?
+  createdAt       DateTime      @default(now())
+  terreno         Terreno?      @relation(fields: [terrenoId], references: [id])
+  usuario         Usuario?      @relation(fields: [usuarioId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model Notificacao {
+  id        String   @id @default(cuid())
+  usuarioId String?
+  tipo      String
+  titulo    String
+  mensagem  String
+  lida      Boolean  @default(false)
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  @@map("notificacoes")
+}
+
+model ZenkitSyncLog {
+  id          String    @id @default(cuid())
+  iniciado    DateTime  @default(now())
+  concluido   DateTime?
+  criados     Int       @default(0)
+  atualizados Int       @default(0)
+  erros       Int       @default(0)
+  log         Json?
+  status      String    @default("EM_ANDAMENTO")
+
+  @@map("zenkit_sync_logs")
+}
+
+model Configuracao {
+  id        String   @id @default(cuid())
+  chave     String   @unique
+  valor     Json
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+
+  @@map("configuracoes")
+}
 
 enum Role {
   ADMIN
@@ -89,336 +369,4 @@ enum TipoAuditoria {
   CREATE
   UPDATE
   DELETE
-}
-
-// ─── Usuario ──────────────────────────────────────────────────────────────────
-
-model Usuario {
-  id         String   @id @default(cuid())
-  supabaseId String   @unique
-  nome       String
-  email      String   @unique
-  role       Role     @default(ANALISTA)
-  ativo      Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  terrenosCriados    Terreno[]            @relation("TerrenoCriador")
-  terrenosResponsavel Terreno[]           @relation("TerrenoResponsavel")
-  auditLogs          AuditLog[]
-  propostasCriadas   Proposta[]
-
-  @@map("usuarios")
-}
-
-// ─── Terreno ──────────────────────────────────────────────────────────────────
-
-model Terreno {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Identificação
-  nome      String
-  apelido   String?
-  logradouro String
-  numero     String?
-  complemento String?
-  bairro    String
-  cidade    String
-  uf        String   @db.Char(2)
-  cep       String?
-  lat       Float?
-  lng       Float?
-  areaTerreno Float  // m²
-
-  // Origem
-  origem        OrigemTerreno @default(MANUAL)
-  zenkitItemId  String?
-  dataProspeccao DateTime @default(now())
-
-  // Potencial construtivo
-  zoneamento          String?
-  coeficienteAproveitamento Float?
-  numUnidadesEstimado  Int?
-  areaPrivativaMedia   Float?  // m²
-  vgvEstimado          Float?  // R$
-
-  // Negociação
-  valorPedido          Float?  // R$
-  valorCompra          Float?  // R$ - valor negociado
-  formaPagamento       FormaPagamento?
-  prazoPagamento       Int?    // meses
-  percentualPermuta    Float?  // 0-100
-  descricaoPermuta     String?
-
-  // Status do funil
-  status    StatusTerreno @default(PROSPECCAO)
-
-  // Relações
-  createdBy   String
-  criador     Usuario  @relation("TerrenoCriador", fields: [createdBy], references: [id])
-  responsavelId String?
-  responsavel  Usuario? @relation("TerrenoResponsavel", fields: [responsavelId], references: [id])
-
-  proprietarios  TerrenoProprietario[]
-  corretor       Corretor?            @relation(fields: [corretorId], references: [id])
-  corretorId     String?
-
-  statusHistorico TerrenoStatusHistorico[]
-  propostas       Proposta[]
-  contratos       Contrato[]
-  matriculas      Matricula[]
-  dueDiligences   DueDiligence[]
-  lancamentos     LancamentoFinanceiro[]
-  auditLogs       AuditLog[]
-
-  @@map("terrenos")
-}
-
-// ─── TerrenoStatusHistorico ───────────────────────────────────────────────────
-
-model TerrenoStatusHistorico {
-  id          String        @id @default(cuid())
-  terrenoId   String
-  terreno     Terreno       @relation(fields: [terrenoId], references: [id], onDelete: Cascade)
-  statusAnterior StatusTerreno?
-  statusNovo  StatusTerreno
-  observacao  String?
-  createdAt   DateTime      @default(now())
-  createdBy   String
-
-  @@map("terreno_status_historico")
-}
-
-// ─── Proprietario ─────────────────────────────────────────────────────────────
-
-model Proprietario {
-  id              String   @id @default(cuid())
-  nomeRazaoSocial String
-  cpfCnpj         String?
-  telefone        String?
-  email           String?
-  representanteLegal String?
-  observacoes     String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  createdBy       String
-
-  terrenos        TerrenoProprietario[]
-  dueDiligences   DueDiligence[]
-
-  @@map("proprietarios")
-}
-
-// ─── TerrenoProprietario (N:N) ────────────────────────────────────────────────
-
-model TerrenoProprietario {
-  id             String       @id @default(cuid())
-  terrenoId      String
-  proprietarioId String
-  terreno        Terreno      @relation(fields: [terrenoId], references: [id], onDelete: Cascade)
-  proprietario   Proprietario @relation(fields: [proprietarioId], references: [id])
-  percentual     Float?       // % de titularidade
-  principal      Boolean      @default(false)
-
-  @@unique([terrenoId, proprietarioId])
-  @@map("terreno_proprietarios")
-}
-
-// ─── Corretor ─────────────────────────────────────────────────────────────────
-
-model Corretor {
-  id         String   @id @default(cuid())
-  nome       String
-  telefone   String?
-  email      String?
-  creci      String?
-  percentualComissao Float?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  createdBy  String
-
-  terrenos   Terreno[]
-
-  @@map("corretores")
-}
-
-// ─── Proposta ─────────────────────────────────────────────────────────────────
-
-model Proposta {
-  id             String         @id @default(cuid())
-  terrenoId      String
-  terreno        Terreno        @relation(fields: [terrenoId], references: [id])
-  versao         Int            @default(1)
-  dataEnvio      DateTime?
-  validade       DateTime?
-  valorProposto  Float?
-  formaPagamento FormaPagamento?
-  prazo          Int?
-  percentualPermuta Float?
-  condicoesEspeciais String?
-  status         StatusProposta @default(RASCUNHO)
-  motivoRecusa   String?
-  baseParaContrato Boolean      @default(false)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  createdBy      String
-  criador        Usuario        @relation(fields: [createdBy], references: [id])
-
-  contratos      Contrato[]
-
-  @@map("propostas")
-}
-
-// ─── Contrato ─────────────────────────────────────────────────────────────────
-
-model Contrato {
-  id          String         @id @default(cuid())
-  terrenoId   String
-  terreno     Terreno        @relation(fields: [terrenoId], references: [id])
-  propostaId  String?
-  proposta    Proposta?      @relation(fields: [propostaId], references: [id])
-  versao      Int            @default(1)
-  clausulas   Json?          // JSON com cláusulas estruturadas
-  status      StatusContrato @default(MINUTA)
-  dataAssinatura DateTime?
-  dataVencimento DateTime?
-  observacoes String?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  createdBy   String
-
-  lancamentos LancamentoFinanceiro[]
-
-  @@map("contratos")
-}
-
-// ─── Matricula ────────────────────────────────────────────────────────────────
-
-model Matricula {
-  id             String    @id @default(cuid())
-  terrenoId      String
-  terreno        Terreno   @relation(fields: [terrenoId], references: [id])
-  numero         String?
-  cartorio       String?
-  comarca        String?
-  dadosExtraidos Json?
-  arquivos       Json?     // [{nome, tipo, tamanho, storagePath}]
-  onus           Json?     // [{tipo, descricao, risco: RiscoOnus, livroFolha?}]
-  riscoOnus      RiscoOnus?
-  observacoes    String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  createdBy      String
-
-  @@map("matriculas")
-}
-
-// ─── DueDiligence ─────────────────────────────────────────────────────────────
-
-model DueDiligence {
-  id             String                    @id @default(cuid())
-  proprietarioId String
-  proprietario   Proprietario              @relation(fields: [proprietarioId], references: [id])
-  terrenoId      String?
-  terreno        Terreno?                  @relation(fields: [terrenoId], references: [id])
-  tipo           TipoDocumentoDueDiligence
-  dataAnalise    DateTime?
-  fonte          String?
-  resultado      Json?
-  checklist      Json?                     // [{item, status: PENDENTE|OK|ALERTA|CRITICO, data?, evidencia?, fonte?}]
-  resumo         String?
-  score          Float?                    // 0-100
-  createdAt      DateTime                  @default(now())
-  updatedAt      DateTime                  @updatedAt
-  createdBy      String
-
-  @@map("due_diligences")
-}
-
-// ─── LancamentoFinanceiro ─────────────────────────────────────────────────────
-
-model LancamentoFinanceiro {
-  id          String                   @id @default(cuid())
-  terrenoId   String
-  terreno     Terreno                  @relation(fields: [terrenoId], references: [id])
-  contratoId  String?
-  contrato    Contrato?                @relation(fields: [contratoId], references: [id])
-  tipo        TipoLancamentoFinanceiro
-  descricao   String?
-  valor       Float
-  vencimento  DateTime?
-  status      StatusLancamento         @default(PREVISTO)
-  dataPagamento DateTime?
-  comprovante String?                  // URL do arquivo
-  recorrente  Boolean                  @default(false)
-  recorrencia String?                  // ex: "MENSAL", "ANUAL"
-  recorrenciaConfig Json?              // {frequencia, totalParcelas, parcelaAtual}
-  createdAt   DateTime                 @default(now())
-  updatedAt   DateTime                 @updatedAt
-  createdBy   String
-
-  @@map("lancamentos_financeiros")
-}
-
-// ─── AuditLog ─────────────────────────────────────────────────────────────────
-
-model AuditLog {
-  id         String        @id @default(cuid())
-  usuarioId  String?
-  usuario    Usuario?      @relation(fields: [usuarioId], references: [id])
-  terrenoId  String?
-  terreno    Terreno?      @relation(fields: [terrenoId], references: [id])
-  tipo       TipoAuditoria
-  entidade   String        // nome da tabela
-  entidadeId String
-  camposAlterados Json?    // diff dos campos
-  descricao  String?
-  createdAt  DateTime      @default(now())
-
-  @@map("audit_logs")
-}
-
-// ─── Notificacao ──────────────────────────────────────────────────────────────
-
-model Notificacao {
-  id        String   @id @default(cuid())
-  usuarioId String?
-  tipo      String
-  titulo    String
-  mensagem  String
-  lida      Boolean  @default(false)
-  payload   Json?
-  createdAt DateTime @default(now())
-
-  @@map("notificacoes")
-}
-
-// ─── ZenkitSync ───────────────────────────────────────────────────────────────
-
-model ZenkitSyncLog {
-  id         String   @id @default(cuid())
-  iniciado   DateTime @default(now())
-  concluido  DateTime?
-  criados    Int      @default(0)
-  atualizados Int     @default(0)
-  erros      Int      @default(0)
-  log        Json?
-  status     String   @default("EM_ANDAMENTO")
-
-  @@map("zenkit_sync_logs")
-}
-
-// ─── Configuracoes ────────────────────────────────────────────────────────────
-
-model Configuracao {
-  id    String @id @default(cuid())
-  chave String @unique
-  valor Json
-
-  updatedAt DateTime @updatedAt
-  updatedBy String?
-
-  @@map("configuracoes")
 }

@@ -46,3 +46,10 @@ prisma/migrations/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# dev server logs
+dev.log
+dev.err
+
+# seed ready (gerado localmente)
+prisma/seed_ready.sql
