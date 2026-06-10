@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase-server";
 import { z } from "zod";
-import type { ClausulasContrato } from "@/lib/contratos/template";
 import { podeAssinarContrato } from "@/lib/due-diligence/podeAssinarContrato";
 
 const Schema = z.object({
@@ -128,8 +127,6 @@ async function gerarLancamentosFinanceiros(
   contrato: any,
   usuarioId: string
 ) {
-  const clausulas = (contrato.clausulas ?? {}) as ClausulasContrato;
-  const clausulaPreco = clausulas["preco"];
   const dataBase = contrato.dataAssinatura ? new Date(contrato.dataAssinatura) : new Date();
 
   // Busca dados do terreno para calcular parcelas
