@@ -13,6 +13,7 @@ import {
   ChevronRight,
   BookOpen,
   ShieldCheck,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase";
@@ -25,6 +26,7 @@ const navItems = [
   { label: "Contratos", href: "/contratos", icon: ScrollText },
   { label: "Matrículas", href: "/matriculas", icon: BookOpen },
   { label: "Due Diligence", href: "/due-diligence", icon: ShieldCheck },
+  { label: "Financeiro", href: "/financeiro", icon: Wallet },
 ];
 
 const bottomItems = [

@@ -279,6 +279,64 @@ export default function DashboardContent() {
           </div>
         )}
       </div>
+
+      {/* Card Financeiro */}
+      <CardFinanceiroDashboard />
+    </div>
+  );
+}
+
+function CardFinanceiroDashboard() {
+  const [fin, setFin] = useState<any>(null);
+
+  useEffect(() => {
+    fetch("/api/financeiro/lancamentos")
+      .then((r) => r.json())
+      .then((ls: any[]) => {
+        if (!Array.isArray(ls)) return;
+        const hoje = new Date();
+        const aPagar = ls.filter((l) => l.status === "A_PAGAR").reduce((s, l) => s + l.valor, 0);
+        const atrasados = ls.filter((l) => l.status === "ATRASADO");
+        const totalAtrasado = atrasados.reduce((s, l) => s + l.valor, 0);
+        const proximos = ls
+          .filter((l) => l.status !== "PAGO" && l.vencimento && new Date(l.vencimento) >= hoje)
+          .sort((a, b) => new Date(a.vencimento).getTime() - new Date(b.vencimento).getTime());
+        setFin({ aPagar, qtdAtrasados: atrasados.length, totalAtrasado, proximo: proximos[0] ?? null });
+      })
+      .catch(() => {});
+  }, []);
+
+  if (!fin) return null;
+
+  return (
+    <div className="rounded-xl border border-black/8 bg-white p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-sm font-semibold text-black">Financeiro — Resumo do Mês</h2>
+        <Link href="/financeiro" className="text-xs text-[#F26522] font-medium hover:underline">Ver detalhes →</Link>
+      </div>
+      <div className="grid grid-cols-3 gap-4">
+        <div className="p-4 rounded-lg bg-[#F7F7F7]">
+          <p className="text-xs text-[#606060] mb-1">A pagar no mês</p>
+          <p className="text-base font-semibold text-yellow-700">{formatCurrency(fin.aPagar)}</p>
+        </div>
+        <div className={`p-4 rounded-lg ${fin.qtdAtrasados > 0 ? "bg-red-50" : "bg-[#F7F7F7]"}`}>
+          <p className="text-xs text-[#606060] mb-1">Atrasados ({fin.qtdAtrasados})</p>
+          <p className={`text-base font-semibold ${fin.qtdAtrasados > 0 ? "text-red-700" : "text-[#606060]"}`}>
+            {formatCurrency(fin.totalAtrasado)}
+          </p>
+        </div>
+        <div className="p-4 rounded-lg bg-[#F7F7F7]">
+          <p className="text-xs text-[#606060] mb-1">Próximo vencimento</p>
+          {fin.proximo ? (
+            <div>
+              <p className="text-sm font-semibold text-black">{formatCurrency(fin.proximo.valor)}</p>
+              <p className="text-xs text-[#606060]">{new Date(fin.proximo.vencimento).toLocaleDateString("pt-BR")}</p>
+            </div>
+          ) : (
+            <p className="text-sm text-[#A0A0A0]">—</p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

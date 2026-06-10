@@ -17,6 +17,7 @@ import { calcularScore } from "@/lib/score";
 import { FileText, Scale, CreditCard, Lock } from "lucide-react";
 import MatriculaTab from "@/components/matricula/MatriculaTab";
 import DueDiligenceTab from "@/components/due-diligence/DueDiligenceTab";
+import FinanceiroTab from "@/components/financeiro/FinanceiroTab";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -29,7 +30,7 @@ const TABS = [
   { key: "historico", label: "Histórico" },
 ];
 
-const TABS_FUTURAS = new Set(["financeiro"]);
+const TABS_FUTURAS = new Set<string>([]);
 
 interface Props { id: string }
 
@@ -178,6 +179,9 @@ export default function TerrenoDetail({ id }: Props) {
             <DueDiligenceTab terrenoId={id} />
           </section>
         </div>
+      )}
+      {tab === "financeiro" && (
+        <FinanceiroTab terrenoId={id} usuarioRole={usuarioRole} />
       )}
       {tab === "historico" && <TabHistorico historico={terreno.statusHistorico} />}
       {TABS_FUTURAS.has(tab) && <TabFutura label={TABS.find((t) => t.key === tab)?.label ?? ""} />}

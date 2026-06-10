@@ -350,9 +350,11 @@ model LancamentoFinanceiro {
   valor       Float
   vencimento  DateTime?
   status      StatusLancamento         @default(PREVISTO)
+  dataPagamento DateTime?
   comprovante String?                  // URL do arquivo
   recorrente  Boolean                  @default(false)
   recorrencia String?                  // ex: "MENSAL", "ANUAL"
+  recorrenciaConfig Json?              // {frequencia, totalParcelas, parcelaAtual}
   createdAt   DateTime                 @default(now())
   updatedAt   DateTime                 @updatedAt
   createdBy   String
@@ -376,6 +378,36 @@ model AuditLog {
   createdAt  DateTime      @default(now())
 
   @@map("audit_logs")
+}
+
+// ─── Notificacao ──────────────────────────────────────────────────────────────
+
+model Notificacao {
+  id        String   @id @default(cuid())
+  usuarioId String?
+  tipo      String
+  titulo    String
+  mensagem  String
+  lida      Boolean  @default(false)
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  @@map("notificacoes")
+}
+
+// ─── ZenkitSync ───────────────────────────────────────────────────────────────
+
+model ZenkitSyncLog {
+  id         String   @id @default(cuid())
+  iniciado   DateTime @default(now())
+  concluido  DateTime?
+  criados    Int      @default(0)
+  atualizados Int     @default(0)
+  erros      Int      @default(0)
+  log        Json?
+  status     String   @default("EM_ANDAMENTO")
+
+  @@map("zenkit_sync_logs")
 }
 
 // ─── Configuracoes ────────────────────────────────────────────────────────────
