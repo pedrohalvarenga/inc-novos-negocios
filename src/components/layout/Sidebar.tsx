@@ -11,6 +11,8 @@ import {
   Settings,
   LogOut,
   ChevronRight,
+  BookOpen,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase";
@@ -21,6 +23,8 @@ const navItems = [
   { label: "Terrenos", href: "/terrenos", icon: MapPin },
   { label: "Propostas", href: "/propostas", icon: FileText },
   { label: "Contratos", href: "/contratos", icon: ScrollText },
+  { label: "Matrículas", href: "/matriculas", icon: BookOpen },
+  { label: "Due Diligence", href: "/due-diligence", icon: ShieldCheck },
 ];
 
 const bottomItems = [

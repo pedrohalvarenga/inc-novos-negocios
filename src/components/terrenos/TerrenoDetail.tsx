@@ -15,6 +15,8 @@ import { formatCurrency, formatArea, formatDate, formatPercent } from "@/lib/for
 import { FORMA_PAGAMENTO_LABELS } from "@/lib/constants";
 import { calcularScore } from "@/lib/score";
 import { FileText, Scale, CreditCard, Lock } from "lucide-react";
+import MatriculaTab from "@/components/matricula/MatriculaTab";
+import DueDiligenceTab from "@/components/due-diligence/DueDiligenceTab";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -27,7 +29,7 @@ const TABS = [
   { key: "historico", label: "Histórico" },
 ];
 
-const TABS_FUTURAS = new Set(["matricula", "financeiro"]);
+const TABS_FUTURAS = new Set(["financeiro"]);
 
 interface Props { id: string }
 
@@ -160,6 +162,22 @@ export default function TerrenoDetail({ id }: Props) {
       )}
       {tab === "contrato" && (
         <ContratoTab terrenoId={id} terrenoNome={terreno.nome} />
+      )}
+      {tab === "matricula" && (
+        <div className="space-y-8">
+          <section>
+            <h3 className="text-sm font-semibold text-black mb-4 flex items-center gap-2">
+              <FileText size={16} className="text-[#FF7924]" /> Matrícula
+            </h3>
+            <MatriculaTab terrenoId={id} />
+          </section>
+          <section>
+            <h3 className="text-sm font-semibold text-black mb-4 flex items-center gap-2">
+              <Scale size={16} className="text-[#FF7924]" /> Due Diligence
+            </h3>
+            <DueDiligenceTab terrenoId={id} />
+          </section>
+        </div>
       )}
       {tab === "historico" && <TabHistorico historico={terreno.statusHistorico} />}
       {TABS_FUTURAS.has(tab) && <TabFutura label={TABS.find((t) => t.key === tab)?.label ?? ""} />}

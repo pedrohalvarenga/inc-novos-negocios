@@ -3,11 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase-server";
 import { z } from "zod";
 import type { ClausulasContrato } from "@/lib/contratos/template";
+import { podeAssinarContrato } from "@/lib/due-diligence/podeAssinarContrato";
 
 const Schema = z.object({
   status: z.enum(["MINUTA", "EM_REVISAO", "ANALISE_JURIDICA", "APROVADO", "ASSINADO", "RESCINDIDO"]),
   dataAssinatura: z.string().optional().nullable(),
   observacoes: z.string().optional().nullable(),
+  overrideJustificativa: z.string().optional(), // Admin override da trava de assinatura
 });
 
 export async function POST(
@@ -26,11 +28,40 @@ export async function POST(
   const parsed = Schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const { status, dataAssinatura, observacoes } = parsed.data;
+  const { status, dataAssinatura, observacoes, overrideJustificativa } = parsed.data;
 
   // Somente Gestor/Admin podem aprovar ou assinar
   if (["APROVADO", "ASSINADO"].includes(status) && !["ADMIN", "GESTOR"].includes(dbUser.role)) {
     return NextResponse.json({ error: "Apenas Gestor ou Admin podem aprovar/assinar contratos" }, { status: 403 });
+  }
+
+  // Trava de segurança: verifica matrícula e due diligence antes de assinar
+  if (status === "ASSINADO") {
+    const contratoPrev = await prisma.contrato.findUnique({ where: { id }, select: { terrenoId: true } });
+    if (contratoPrev) {
+      const verificacao = await podeAssinarContrato(contratoPrev.terrenoId);
+      if (!verificacao.podeAssinar) {
+        if (dbUser.role !== "ADMIN" || !overrideJustificativa) {
+          return NextResponse.json({
+            error: "Assinatura bloqueada por pendências de risco",
+            pendencias: verificacao.pendencias,
+            podeOverride: dbUser.role === "ADMIN",
+          }, { status: 409 });
+        }
+        // Admin com justificativa: auditoria e prossegue
+        await prisma.auditLog.create({
+          data: {
+            usuarioId: dbUser.id,
+            terrenoId: contratoPrev.terrenoId,
+            tipo: "UPDATE",
+            entidade: "contrato",
+            entidadeId: id,
+            descricao: `Override de assinatura por Admin. Justificativa: ${overrideJustificativa}`,
+            camposAlterados: { pendencias: verificacao.pendencias } as any,
+          },
+        });
+      }
+    }
   }
 
   const contrato = await prisma.contrato.findUnique({

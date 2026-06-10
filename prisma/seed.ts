@@ -495,7 +495,216 @@ async function main() {
     },
   });
 
-  console.log("✅ Seed concluído! 12 terrenos, 5 proprietários, 2 corretores criados.");
+  // ─── Fase 3: Matrículas fictícias ────────────────────────────────────────────
+  // Usar o primeiro terreno disponível no banco para as matrículas seed
+  const primeiroTerreno = await prisma.terreno.findFirst({ orderBy: { createdAt: "asc" } });
+  const segundoTerreno = await prisma.terreno.findFirst({ orderBy: { createdAt: "asc" }, skip: 1 });
+
+  if (primeiroTerreno) {
+    await prisma.matricula.upsert({
+      where: { id: "mat-001" },
+      update: {},
+      create: {
+        id: "mat-001",
+        terrenoId: primeiroTerreno.id,
+        numero: "45.678",
+        cartorio: "2º Cartório de Registro de Imóveis",
+        comarca: "São Paulo – SP",
+        riscoOnus: "ALTO",
+        dadosExtraidos: {
+          numero: "45.678",
+          cartorioComarca: "2º Cartório de Registro de Imóveis — São Paulo – SP",
+          descricaoImovel: "Terreno urbano com área de 1.250 m², situado na Rua das Acácias, 123, Bairro Jardim América, São Paulo/SP.",
+          areaRegistrada: 1250,
+          proprietariosAtuais: [{ nome: "José Carlos Mendonça", cpfCnpj: "123.456.789-00" }],
+          cadeiaDominial: [
+            { data: "15/03/2008", descricao: "Aquisição por José Carlos Mendonça via compra e venda" },
+            { data: "22/07/1992", descricao: "Transmissão por inventário — espólio de Antônio Mendonça" },
+          ],
+          registrosAverbacoes: ["Averbação de construção de galpão – 2012", "Atualização de área por retificação – 2015"],
+          onus: [
+            {
+              tipo: "Hipoteca",
+              descricao: "Hipoteca convencional em favor do Banco Bradesco S.A. no valor de R$ 850.000,00 — R4 de 12/05/2019",
+              risco: "ALTO",
+              livroFolha: "R-4/45.678",
+            },
+          ],
+          riscoConsolidado: "ALTO",
+          observacoes: "Hipoteca ainda vigente conforme matrícula. Necessária baixa ou anuência do credor para transferência.",
+        },
+        onus: [
+          {
+            tipo: "Hipoteca",
+            descricao: "Hipoteca convencional em favor do Banco Bradesco S.A. no valor de R$ 850.000,00 — R4 de 12/05/2019",
+            risco: "ALTO",
+            livroFolha: "R-4/45.678",
+          },
+        ],
+        arquivos: [{ nome: "matricula-p1.jpg", tipo: "image/jpeg", tamanho: 0 }],
+        createdBy: admin.id,
+      },
+    });
+  }
+
+  if (segundoTerreno) {
+    await prisma.matricula.upsert({
+      where: { id: "mat-002" },
+      update: {},
+      create: {
+        id: "mat-002",
+        terrenoId: segundoTerreno.id,
+        numero: "12.345",
+        cartorio: "1º Cartório de Registro de Imóveis",
+        comarca: "Campinas – SP",
+        riscoOnus: "BAIXO",
+        dadosExtraidos: {
+          numero: "12.345",
+          cartorioComarca: "1º Cartório de Registro de Imóveis — Campinas – SP",
+          descricaoImovel: "Terreno urbano com área de 2.100 m², situado na Av. Presidente Kennedy, 456, Bairro Jardim Guanabara, Campinas/SP.",
+          areaRegistrada: 2100,
+          proprietariosAtuais: [
+            { nome: "Paulo Silva", cpfCnpj: "987.654.321-00" },
+            { nome: "Maria Silva", cpfCnpj: "111.222.333-44" },
+          ],
+          cadeiaDominial: [
+            { data: "10/06/2014", descricao: "Aquisição por Paulo e Maria Silva via compra e venda" },
+          ],
+          registrosAverbacoes: ["Comunicação de venda – 2014", "Averbação de casamento – 2014"],
+          onus: [],
+          riscoConsolidado: "BAIXO",
+          observacoes: null,
+        },
+        onus: [],
+        arquivos: [{ nome: "matricula-p1.jpg", tipo: "image/jpeg", tamanho: 0 }, { nome: "matricula-p2.jpg", tipo: "image/jpeg", tamanho: 0 }],
+        createdBy: admin.id,
+      },
+    });
+  }
+
+  // ─── Fase 3: Due Diligences fictícias ────────────────────────────────────────
+  const primeiroProprietario = await prisma.proprietario.findFirst({ orderBy: { createdAt: "asc" } });
+  const segundoProprietario = await prisma.proprietario.findFirst({ orderBy: { createdAt: "asc" }, skip: 1 });
+  const terceiroProprietario = await prisma.proprietario.findFirst({ orderBy: { createdAt: "asc" }, skip: 2 });
+
+  if (primeiroProprietario && primeiroTerreno) {
+    await prisma.dueDiligence.upsert({
+      where: { id: "dd-001" },
+      update: {},
+      create: {
+        id: "dd-001",
+        proprietarioId: primeiroProprietario.id,
+        terrenoId: primeiroTerreno.id,
+        tipo: "CPF",
+        fonte: "Manual",
+        score: 72,
+        resumo: "Vendedor sem restrições graves identificadas. Apresenta alguns processos trabalhistas antigos já encerrados. Recomenda-se certidão negativa municipal atualizada.",
+        checklist: [
+          { item: "Situação cadastral CPF", status: "OK", data: "2026-06-01", fonte: "Receita Federal", evidencia: "Situação regular" },
+          { item: "Processos cíveis", status: "ALERTA", data: "2026-06-01", evidencia: "1 processo antigo em fase de execução" },
+          { item: "Execuções fiscais", status: "OK", data: "2026-06-01" },
+          { item: "Reclamações trabalhistas", status: "OK", data: "2026-06-01", evidencia: "Processo de 2019 já encerrado" },
+          { item: "Protestos em cartório", status: "OK", data: "2026-06-01" },
+          { item: "Falência / recuperação judicial", status: "OK", data: "2026-06-01" },
+          { item: "Certidão negativa federal", status: "OK", data: "2026-06-01" },
+          { item: "Certidão negativa estadual", status: "OK", data: "2026-06-01" },
+          { item: "Certidão negativa municipal", status: "PENDENTE" },
+          { item: "Certidão negativa trabalhista", status: "OK", data: "2026-06-01" },
+        ],
+        resultado: {
+          parecer: {
+            score: 72,
+            resumoRiscos: "Vendedor com situação cadastral regular. Há um processo cível em andamento que pode representar risco de fraude contra credores. Recomenda-se atenção às certidões municipais.",
+            alertaFraude: false,
+            recomendacoes: [
+              "Solicitar certidão negativa municipal atualizada",
+              "Incluir cláusula de retenção de 10% do valor até baixa do processo cível",
+              "Verificar se o processo cível envolve o imóvel objeto da negociação",
+            ],
+            podeProsseguir: "COM_RESSALVAS",
+            justificativaProsseguir: "Pode prosseguir com as ressalvas de obtenção das certidões pendentes e cláusula de retenção.",
+          },
+        },
+        dataAnalise: new Date("2026-06-01"),
+        createdBy: admin.id,
+      },
+    });
+  }
+
+  if (segundoProprietario && segundoTerreno) {
+    await prisma.dueDiligence.upsert({
+      where: { id: "dd-002" },
+      update: {},
+      create: {
+        id: "dd-002",
+        proprietarioId: segundoProprietario.id,
+        terrenoId: segundoTerreno.id,
+        tipo: "CNPJ",
+        fonte: "Receita Federal (BrasilAPI)",
+        score: 45,
+        resumo: "Empresa com situação irregular na Receita Federal e recuperação judicial em andamento. Alto risco para a INC.",
+        checklist: [
+          { item: "Situação cadastral CNPJ", status: "CRITICO", data: "2026-06-01", evidencia: "INAPTA na Receita Federal" },
+          { item: "Processos cíveis", status: "CRITICO", data: "2026-06-01", evidencia: "Múltiplos processos de execução" },
+          { item: "Execuções fiscais", status: "ALERTA", data: "2026-06-01", evidencia: "2 CDATs em aberto" },
+          { item: "Reclamações trabalhistas", status: "ALERTA", data: "2026-06-01" },
+          { item: "Protestos em cartório", status: "ALERTA", data: "2026-06-01", evidencia: "3 protestos identificados" },
+          { item: "Falência / recuperação judicial / dissolução", status: "CRITICO", data: "2026-06-01", evidencia: "Recuperação judicial decretada em 2025" },
+          { item: "Certidão negativa federal", status: "PENDENTE" },
+          { item: "Certidão negativa estadual", status: "PENDENTE" },
+          { item: "Certidão negativa municipal", status: "PENDENTE" },
+          { item: "Certidão negativa trabalhista", status: "PENDENTE" },
+          { item: "Quadro societário atualizado", status: "OK", data: "2026-06-01" },
+        ],
+        resultado: {
+          parecer: {
+            score: 45,
+            resumoRiscos: "Empresa em situação crítica: INAPTA na Receita Federal, com recuperação judicial decretada e múltiplos processos de execução. Venda do imóvel em recuperação judicial pode caracterizar fraude contra credores.",
+            alertaFraude: true,
+            motivoAlertaFraude: "Empresa em recuperação judicial vendendo ativo imóvel sem autorização judicial expressa pode caracterizar fraude à execução.",
+            recomendacoes: [
+              "Exigir autorização judicial do juiz da recuperação para alienação do imóvel",
+              "Contratar advogado especialista em recuperação judicial para acompanhar a operação",
+              "Verificar se o imóvel faz parte da massa de ativos da recuperação",
+              "Não assinar contrato sem anuência formal dos credores ou do administrador judicial",
+            ],
+            podeProsseguir: "NAO",
+            justificativaProsseguir: "Não recomendado prosseguir sem autorização judicial e anuência dos credores da recuperação.",
+          },
+        },
+        dataAnalise: new Date("2026-06-01"),
+        createdBy: gestor.id,
+      },
+    });
+  }
+
+  if (terceiroProprietario) {
+    await prisma.dueDiligence.upsert({
+      where: { id: "dd-003" },
+      update: {},
+      create: {
+        id: "dd-003",
+        proprietarioId: terceiroProprietario.id,
+        tipo: "CPF",
+        fonte: "Manual",
+        checklist: [
+          { item: "Situação cadastral CPF", status: "PENDENTE" },
+          { item: "Processos cíveis", status: "PENDENTE" },
+          { item: "Execuções fiscais", status: "PENDENTE" },
+          { item: "Reclamações trabalhistas", status: "PENDENTE" },
+          { item: "Protestos em cartório", status: "PENDENTE" },
+          { item: "Falência / recuperação judicial", status: "PENDENTE" },
+          { item: "Certidão negativa federal", status: "PENDENTE" },
+          { item: "Certidão negativa estadual", status: "PENDENTE" },
+          { item: "Certidão negativa municipal", status: "PENDENTE" },
+          { item: "Certidão negativa trabalhista", status: "PENDENTE" },
+        ],
+        createdBy: analista.id,
+      },
+    });
+  }
+
+  console.log("✅ Seed concluído! 12 terrenos, 5 proprietários, 2 corretores + Fase 3: 2 matrículas, 3 due diligences criados.");
 }
 
 main()

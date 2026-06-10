@@ -304,6 +304,8 @@ model Matricula {
   cartorio       String?
   comarca        String?
   dadosExtraidos Json?
+  arquivos       Json?     // [{nome, tipo, tamanho, storagePath}]
+  onus           Json?     // [{tipo, descricao, risco: RiscoOnus, livroFolha?}]
   riscoOnus      RiscoOnus?
   observacoes    String?
   createdAt      DateTime  @default(now())
@@ -325,6 +327,7 @@ model DueDiligence {
   dataAnalise    DateTime?
   fonte          String?
   resultado      Json?
+  checklist      Json?                     // [{item, status: PENDENTE|OK|ALERTA|CRITICO, data?, evidencia?, fonte?}]
   resumo         String?
   score          Float?                    // 0-100
   createdAt      DateTime                  @default(now())
