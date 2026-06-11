@@ -43,7 +43,16 @@ export default function DashboardContent() {
   }, []);
 
   if (loading) return null;
-  if (!data) return <p className="text-[#606060]">Erro ao carregar dados.</p>;
+  if (!data || data.error || !data.kpis) {
+    return (
+      <div className="rounded-lg border border-orange-200 bg-orange-50 p-6 max-w-xl">
+        <p className="font-medium text-[#1a1a1a] mb-1">Não foi possível carregar o dashboard</p>
+        <p className="text-sm text-[#606060]">
+          {data?.mensagem ?? "Erro ao carregar dados. Recarregue a página em alguns instantes."}
+        </p>
+      </div>
+    );
+  }
 
   const { kpis, funil, cidades, tempoMedioEtapas, tabelaTerrenos } = data;
 
