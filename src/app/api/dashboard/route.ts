@@ -15,6 +15,7 @@ export async function GET() {
         statusHistorico: { orderBy: { createdAt: "asc" } },
         criador: { select: { id: true, nome: true } },
         responsavel: { select: { id: true, nome: true } },
+        matriculas: { orderBy: { updatedAt: "desc" }, take: 1, select: { riscoOnus: true } },
       },
     }),
     prisma.proposta.findMany({
@@ -92,6 +93,7 @@ export async function GET() {
         vgvEstimado: t.vgvEstimado,
         formaPagamento: t.formaPagamento,
         prazoPagamento: t.prazoPagamento,
+        riscoMatricula: t.matriculas[0]?.riscoOnus ?? null,
       });
       const ultima = [...t.statusHistorico].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
       const diasNaEtapa = ultima

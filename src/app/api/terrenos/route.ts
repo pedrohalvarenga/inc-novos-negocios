@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
       responsavel: { select: { id: true, nome: true, email: true } },
       statusHistorico: { orderBy: { createdAt: "desc" }, take: 1 },
       _count: { select: { propostas: true, contratos: true } },
+      matriculas: { orderBy: { updatedAt: "desc" }, take: 1, select: { riscoOnus: true } },
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -51,6 +52,7 @@ export async function GET(request: NextRequest) {
       vgvEstimado: t.vgvEstimado,
       formaPagamento: t.formaPagamento,
       prazoPagamento: t.prazoPagamento,
+      riscoMatricula: t.matriculas[0]?.riscoOnus ?? null,
     });
     const ultima = t.statusHistorico[0];
     const diasNaEtapa = ultima

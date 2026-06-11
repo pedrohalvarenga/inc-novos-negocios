@@ -52,6 +52,7 @@ export default function CalculadoraViabilidade({ terreno, onSave }: Props) {
     vgvEstimado: vgv || null,
     formaPagamento: (forma as FormaPagamento) || null,
     prazoPagamento: prazo || null,
+    riscoMatricula: terreno.matriculas?.[0]?.riscoOnus ?? null,
   });
 
   const pct = vgv > 0 && valorCompra > 0 ? (valorCompra / vgv) * 100 : null;
@@ -324,6 +325,7 @@ export default function CalculadoraViabilidade({ terreno, onSave }: Props) {
                 vgvEstimado: vgv || null,
                 formaPagamento: c.forma,
                 prazoPagamento: c.prazo || null,
+                riscoMatricula: terreno.matriculas?.[0]?.riscoOnus ?? null,
               });
               const isAtual = forma === c.forma;
               return (

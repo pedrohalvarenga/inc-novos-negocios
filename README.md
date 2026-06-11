@@ -1,36 +1,94 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sistema INC — Novos Negócios
 
-## Getting Started
+Sistema interno de gestão de prospecção e aquisição de terrenos da INC Empreendimentos.
 
-First, run the development server:
+## Acesso
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+| Usuário | E-mail | Perfil |
+|---------|--------|--------|
+| Administrador | admin@inc.com.br | ADMIN |
+| Gestor | gestor@inc.com.br | GESTOR |
+| Analista | analista@inc.com.br | ANALISTA |
+
+> Senha definida via Supabase Auth (Settings → Authentication → Users → Reset password).
+
+## Iniciar o sistema
+
+```
+INICIAR SISTEMA.bat   ← duplo clique
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Ou manualmente:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+npm run dev
+# Acesse http://localhost:3000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Stack
 
-## Learn More
+- **Next.js** (App Router, TypeScript, Tailwind CSS)
+- **Supabase** — Auth (SSR cookie-based) + PostgreSQL
+- **Prisma 7** com adapter `@prisma/adapter-pg` (pgbouncer)
 
-To learn more about Next.js, take a look at the following resources:
+## Variáveis de ambiente
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Copie `.env.example` para `.env` e preencha:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+DATABASE_URL=          # pooler porta 6543 com ?pgbouncer=true
+DIRECT_URL=            # conexão direta porta 5432 para migrations
 
-## Deploy on Vercel
+# Opcionais — sistema funciona sem elas:
+ANTHROPIC_API_KEY=     # IA para análise jurídica e matrícula (modo manual sem ela)
+SMTP_HOST=             # E-mail de notificações via Nodemailer
+SMTP_PORT=
+SMTP_USER=
+SMTP_PASS=
+SMTP_FROM=
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Módulos
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Módulo | Rota | Descrição |
+|--------|------|-----------|
+| Dashboard | `/dashboard` | KPIs, funil, score médio, tabela de terrenos |
+| Terrenos | `/terrenos` | CRUD completo com proprietários, filtros e histórico |
+| Propostas | `/propostas` | Gestão de propostas com workflow de status |
+| Contratos | `/contratos` | Contratos com due diligence e assinatura |
+| Matrículas | `/matriculas` | Análise de risco de matrícula (IA ou modo manual) |
+| Due Diligence | `/due-diligence` | Checklist jurídico com parecer de IA |
+| Financeiro | `/financeiro` | Lançamentos, recorrências e alertas de vencimento |
+| Notificações | sino no header | Alertas in-app em tempo real |
+| Configurações | `/configuracoes` | Usuários, Zenkit, integrações |
+
+## Score de negociação (0–100)
+
+Calculado por `src/lib/score.ts` com 4 componentes:
+
+| Componente | Peso | Fonte |
+|------------|------|-------|
+| % Terreno/VGV | 40% | `valorCompra / vgvEstimado` |
+| Forma de pagamento | 25% | `formaPagamento` |
+| Prazo | 20% | `prazoPagamento` |
+| Risco de matrícula | 15% | `getRiscoMatricula()` (BAIXO=100, MEDIO=50, ALTO=25, IMPEDITIVO=0) |
+
+## Cron job
+
+`POST /api/cron/verificar-vencimentos` — executar diariamente:
+- Marca lançamentos vencidos como `ATRASADO`
+- Notifica gestores sobre lançamentos vencendo em 7 dias / hoje / atrasados
+- Alerta sobre propostas com `validade` expirando em 7 dias
+- Alerta sobre contratos com `dataVencimento` crítica em 7 dias
+
+## Identidade visual
+
+Laranja `#FF7924` · Logo em `/public/brand/`
+
+---
+
+> Decisões técnicas e registro de consolidação: [DECISOES.md](DECISOES.md)

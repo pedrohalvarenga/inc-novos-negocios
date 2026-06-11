@@ -1,4 +1,4 @@
-import type { FormaPagamento } from "@prisma/client";
+import type { FormaPagamento, RiscoOnus } from "@prisma/client";
 
 export interface ScoreConfig {
   pesoVgv: number;         // padrão 40
@@ -61,6 +61,7 @@ export interface ScoreInput {
   vgvEstimado: number | null | undefined;
   formaPagamento: FormaPagamento | null | undefined;
   prazoPagamento: number | null | undefined;
+  riscoMatricula?: RiscoOnus | null;
   config?: ScoreConfig;
 }
 
@@ -85,7 +86,8 @@ export function calcularScore(input: ScoreInput): ScoreResult {
   const pvgv = percentualTerreno != null ? pontuacaoVgv(percentualTerreno, config) : 0;
   const ppag = pontuacaoPagamento(input.formaPagamento);
   const pprazo = pontuacaoPrazo(input.prazoPagamento);
-  const prisco = 50; // neutro nesta fase
+  const riscoMap: Record<RiscoOnus, number> = { BAIXO: 100, MEDIO: 50, ALTO: 25, IMPEDITIVO: 0 };
+  const prisco = input.riscoMatricula != null ? riscoMap[input.riscoMatricula] : 50;
 
   const total = (pvgv * config.pesoVgv + ppag * config.pesoPagamento + pprazo * config.pesoPrazo + prisco * config.pesoRisco) / 100;
 

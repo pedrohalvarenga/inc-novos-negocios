@@ -77,6 +77,7 @@ export default function TerrenoDetail({ id }: Props) {
     vgvEstimado: terreno.vgvEstimado,
     formaPagamento: terreno.formaPagamento,
     prazoPagamento: terreno.prazoPagamento,
+    riscoMatricula: terreno.matriculas?.[0]?.riscoOnus ?? null,
   });
 
   const pct = terreno.valorCompra && terreno.vgvEstimado && terreno.vgvEstimado > 0

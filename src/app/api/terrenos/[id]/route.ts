@@ -21,6 +21,7 @@ export async function GET(
       corretor: true,
       statusHistorico: { orderBy: { createdAt: "asc" } },
       _count: { select: { propostas: true, contratos: true, matriculas: true } },
+      matriculas: { orderBy: { updatedAt: "desc" }, take: 1, select: { riscoOnus: true } },
     },
   });
 

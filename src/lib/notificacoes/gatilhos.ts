@@ -72,4 +72,36 @@ export async function dispararNotificacoesVencimento() {
       vencimento: l.vencimento?.toLocaleDateString("pt-BR"),
     });
   }
+
+  // Propostas expirando em 7 dias
+  const propostasExpirando = await prisma.proposta.findMany({
+    where: {
+      status: { in: ["ENVIADA", "EM_NEGOCIACAO"] },
+      validade: { gte: em7Dias, lt: em8Dias },
+    },
+    include: { terreno: { select: { nome: true } } },
+  });
+  for (const p of propostasExpirando) {
+    await notificarTodos("PROPOSTA_EXPIRANDO", {
+      propostaId: p.id,
+      terrenoNome: p.terreno.nome,
+      dataExpiracao: p.validade?.toLocaleDateString("pt-BR"),
+    });
+  }
+
+  // Contratos com data de vencimento crítica em 7 dias
+  const contratosDataCritica = await prisma.contrato.findMany({
+    where: {
+      status: { in: ["ASSINADO"] },
+      dataVencimento: { gte: em7Dias, lt: em8Dias },
+    },
+    include: { terreno: { select: { nome: true } } },
+  });
+  for (const c of contratosDataCritica) {
+    await notificarTodos("CONTRATO_DATA_CRITICA", {
+      contratoId: c.id,
+      terrenoNome: c.terreno.nome,
+      dataCritica: c.dataVencimento?.toLocaleDateString("pt-BR"),
+    });
+  }
 }

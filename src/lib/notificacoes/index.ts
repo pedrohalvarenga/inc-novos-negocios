@@ -15,6 +15,10 @@ export interface PayloadNotificacao {
   valor?: number;
   vencimento?: string;
   erroDetalhes?: string;
+  propostaId?: string;
+  contratoId?: string;
+  dataExpiracao?: string;
+  dataCritica?: string;
 }
 
 export async function notificar(
@@ -67,11 +71,15 @@ function montarTexto(tipo: TipoNotificacao, p: PayloadNotificacao) {
         mensagem: p.erroDetalhes ?? "Ocorreu um erro durante a sincronização.",
       };
     case "PROPOSTA_EXPIRANDO":
-      // TODO: conectar quando Fase 1/2 expuser dados de propostas prestes a expirar
-      return { titulo: "Proposta expirando", mensagem: "Uma proposta está prestes a expirar." };
+      return {
+        titulo: `Proposta expirando — ${p.terrenoNome}`,
+        mensagem: `A proposta expira em ${p.dataExpiracao}. Revise ou renove antes do prazo.`,
+      };
     case "CONTRATO_DATA_CRITICA":
-      // TODO: conectar quando Fase 1/2 expuser datas críticas de contrato
-      return { titulo: "Data crítica de contrato", mensagem: "Um contrato possui data crítica próxima." };
+      return {
+        titulo: `Data crítica de contrato — ${p.terrenoNome}`,
+        mensagem: `O contrato possui data crítica em ${p.dataCritica}. Verifique as pendências.`,
+      };
     default:
       return { titulo: "Notificação", mensagem: "" };
   }

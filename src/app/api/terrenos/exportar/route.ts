@@ -15,6 +15,7 @@ export async function GET() {
       criador: { select: { nome: true } },
       responsavel: { select: { nome: true } },
       proprietarios: { include: { proprietario: { select: { nomeRazaoSocial: true } } } },
+      matriculas: { orderBy: { updatedAt: "desc" }, take: 1, select: { riscoOnus: true } },
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -25,6 +26,7 @@ export async function GET() {
       vgvEstimado: t.vgvEstimado,
       formaPagamento: t.formaPagamento,
       prazoPagamento: t.prazoPagamento,
+      riscoMatricula: t.matriculas[0]?.riscoOnus ?? null,
     });
 
     return {
