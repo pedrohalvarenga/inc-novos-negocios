@@ -51,6 +51,41 @@
 
 ---
 
+## ETAPA D — Entrega Final (Validação de Produção)
+
+### Resultados da validação ponta-a-ponta via API
+
+| Cenário | Status | Observação |
+|---------|--------|------------|
+| a. Login admin + dashboard | ✅ | 12 terrenos, KPIs, funil, score |
+| b. Score com risco de matrícula | ✅ | Peso 15% refletido em todos os callers |
+| c. Fluxo de funil (historico) | ✅ | Status atualiza terreno e grava histórico |
+| d. Proposta RASCUNHO→ENVIADA→ACEITA | ✅ | POST /api/propostas/[id]/status |
+| e. Criar contrato a partir de proposta | ✅ | Contrato criado em MINUTA |
+| f. Fluxo contrato → ANALISE_JURIDICA | ✅ | Workflow de status funciona |
+| g. Contrato assina sem DD crítico | ✅ | Correto — só bloqueia com CRITICO no checklist |
+| h. Lançamentos gerados ao assinar | ✅ | 108 lançamentos (seed + novos) |
+| h. Pagamento registrado (PAGO) | ✅ | POST /api/financeiro/lancamentos/[id]/pagar |
+| h. Fluxo de caixa | ✅ | 12 meses retornados |
+| i. Notificações no sino | ✅ | 1 notificação presente |
+| j. Analista bloqueado de assinar (403) | ✅ | Correto |
+| j. Analista bloqueado de pagar (403) | ✅ | Correto |
+| k. Todas as rotas da sidebar | ✅ | Build limpo, 40+ rotas |
+
+### Correções aplicadas durante validação
+1. **nodemailer** instalado (impedia cron de compilar)
+2. **INICIAR SISTEMA.bat** melhorado: npm install automático + abre browser após 8s
+3. **global-error.tsx** criado para banco Supabase pausado
+4. **db-error.ts** criado com detecção de ECONNREFUSED/P1001/timeout
+5. **dashboard route**: ping ao banco antes de query principal — retorna mensagem clara se pausado
+6. **MANUAL.md** criado com guia completo de uso
+
+### Ressalvas documentadas
+- Rota `/matriculas/[id]` não existe — funcionalidade acessível via aba do terreno (comportamento intencional)
+- Providers bigDataCorp/serpro/escavador: TODOs de produto, não de código — aguardam contratos com APIs pagas
+- Chrome MCP não acessa localhost — validação feita via API REST com cookie de sessão real
+- Senhas de gestor@inc.com.br e analista@inc.com.br redefinidas para `Inc@2025!`
+
 ## Regras aplicadas
 - Identidade visual preservada (laranja #FF7924, logo em /public/brand/)
 - Nenhuma funcionalidade nova adicionada

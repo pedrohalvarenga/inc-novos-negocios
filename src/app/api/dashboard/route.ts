@@ -3,11 +3,17 @@ import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase-server";
 import { STATUS_TERRENO_LABELS, STATUS_TERRENO_ORDER } from "@/lib/constants";
 import { calcularScore } from "@/lib/score";
+import { isBancoPausado, getBancoPausadoResponse } from "@/lib/db-error";
 
 export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
+  try { await prisma.$queryRaw`SELECT 1`; } catch (e) {
+    if (isBancoPausado(e)) return NextResponse.json(getBancoPausadoResponse(), { status: 503 });
+    throw e;
+  }
 
   const [terrenos, propostas] = await Promise.all([
     prisma.terreno.findMany({
